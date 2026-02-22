@@ -1,4 +1,5 @@
 import io
+import logging
 from aiogram import Router, F, Bot
 from aiogram.types import Message
 from services.audio import convert_ogg_to_wav
@@ -71,7 +72,7 @@ async def handle_voice(message: Message, bot: Bot):
         
     except Exception as e:
         # В случае ошибки логируем и сообщаем пользователю
-        print(f"Error handling voice: {e}")
+        logging.error(f"Error handling voice: {e}")
         await bot.edit_message_text(
             f"❌ Ошибка обработки: {str(e)}\n\n*Возможно сервер Ollama не запущен или модель не скачана.*",
             chat_id=message.chat.id,

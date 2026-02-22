@@ -20,7 +20,7 @@ async def main():
     # Подключение роутера с хэндлерами
     dp.include_router(router)
     
-    print("🤖 Бот запущен! Ждет голосовых...")
+    logging.info("🤖 Бот запущен! Ждет голосовых...")
     
     # Запуск polling
     await dp.start_polling(bot)
