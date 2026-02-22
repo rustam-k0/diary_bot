@@ -27,6 +27,8 @@ def test_format_entry():
 async def test_handle_text():
     """Проверка ответа на текстовое сообщение (заглушка)."""
     message_mock = AsyncMock(spec=Message)
+    # MagicMock -> AsyncMock for reply
+    message_mock.reply = AsyncMock()
     
     await handle_text(message_mock)
     
@@ -56,7 +58,9 @@ async def test_handle_voice_success(mock_extract, mock_transcribe, mock_convert)
     
     # Мокаем бота и сообщение
     bot_mock = AsyncMock(spec=Bot)
-    bot_mock.get_file.return_value = File(file_id="123", file_unique_id="123", file_path="fake/path.ogg", file_size=100)
+    bot_mock.get_file = AsyncMock(return_value=File(file_id="123", file_unique_id="123", file_path="fake/path.ogg", file_size=100))
+    bot_mock.download_file = AsyncMock()
+    bot_mock.edit_message_text = AsyncMock()
     
     message_mock = AsyncMock(spec=Message)
     message_mock.chat = Chat(id=123456, type="private")
@@ -65,7 +69,7 @@ async def test_handle_voice_success(mock_extract, mock_transcribe, mock_convert)
     # Мокаем первичное сообщение со статусом
     status_msg_mock = AsyncMock()
     status_msg_mock.message_id = 999
-    message_mock.reply.return_value = status_msg_mock
+    message_mock.reply = AsyncMock(return_value=status_msg_mock)
     
     # Вызываем хэндлер
     await handle_voice(message_mock, bot_mock)

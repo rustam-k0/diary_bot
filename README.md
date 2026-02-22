@@ -94,16 +94,24 @@ diary_bot/
 6. Бот возвращает отформатированный Markdown-текст в чат.
 
 ## Стек (Stack)
-* Python 3.12, aiogram 3.x
+* Python 3.11+, aiogram 3.x
 * faster-whisper, FFmpeg
 * Ollama (qwen2.5:7b-instruct), instructor, pydantic
+* pytest, pytest-asyncio
 
 ## Инструкция по запуску
-1. Установи `ffmpeg`.
-2. Подними Ollama: `ollama run qwen2.5:7b-instruct`
-3. `pip install -r requirements.txt`
-4. Скопируй `.env.example` в `.env` и добавь `BOT_TOKEN`.
+1. Установи `ffmpeg`, `Python` и `Ollama` в систему (если отсутствуют).
+2. Подними загруженную LLM модель Ollama: `ollama run qwen2.5:7b-instruct`
+3. Создай виртуальное окружение и установи пакеты: `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`
+4. Скопируй `.env.example` в `.env` и добавь `BOT_TOKEN` твоего бота.
 5. Запусти бота: `python -m tg_bot.bot`
+
+## Тестирование
+Для верификации работы бота и обработки аудио-пайплайнов используй pytest:
+```bash
+source venv/bin/activate
+pytest tests/
+```
 
 ---
 
