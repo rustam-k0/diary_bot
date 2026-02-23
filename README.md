@@ -1,113 +1,31 @@
-**Executive Summary**
-Проектируем архитектуру и пошаговый план для in-place Telegram MVP, реализующего флоу Voice-to-Structured-Text без внешних зависимостей. Проект строится на модульном, асинхронном Python-стеке, обеспечивающем быстрый старт сейчас и безболезненное масштабирование под OAuth и API сторонних сервисов в будущем.
+# Fast Voice-to-Text Bot
 
-**TODO**
+Минималистичный, быстрый бот для мгновенного перевода потока мыслей (голосовых сообщений) в текст. Работает полностью локально, без использования сторонних API (OpenAI/Google) и дополнительных LLM для анализа. Главный приоритет — скорость.
 
-* [x] Определение минимального и современного технического стека.
-* [x] Проектирование модульной структуры директорий.
-* [x] Формирование пошагового плана реализации MVP.
-* [x] Написание структуры файла `README.md` с планом масштабирования.
+## Сценарий использования (Current State)
 
-**Detailed Response**
+1. Вы отправляете боту голосовое сообщение.
+2. Бот мгновенно скачивает его и конвертирует в `.wav` прямо в оперативной памяти с помощью FFmpeg.
+3. Локальная модель `faster-whisper` (оптимизированная под CPU) переводит голос в текст и сразу отправляет вам ответ.
+4. Отсутствуют любые задержки на анализ или перефразирование (LLM вырезано для скорости).
 
-### 1. Стек технологий (MVP)
+## Технический стек (Stack)
 
-Выбранный стек де-факто является стандартом для современных AI-утилит. Он легкий, асинхронный и запускается локально.
+*   **Python 3.11+**, **aiogram 3.x**
+*   **faster-whisper** (STT движок)
+*   **FFmpeg** (конвертация)
+*   **pytest, pytest-asyncio** (для тестирования)
 
-* **Язык:** Python 3.11+.
-* **Фреймворк бота:** `aiogram` 3.x (чистая асинхронность, встроенная поддержка роутеров, легко переводится с long-polling на вебхуки).
-* **Транскрибация (STT):** `faster-whisper` (оптимизирован для CPU/Apple Silicon, работает в разы быстрее оригинального Whisper).
-* **LLM и Промптинг:** `Ollama` (локальный сервер) + модель `qwen2.5:7b-instruct` (топ-1 для JSON на 7B параметрах).
-* **Валидация данных:** `pydantic` (схемы) + `instructor` (патчинг OpenAI API для 100% гарантии JSON структуры).
-* **Работа с аудио:** `ffmpeg-python` (биндер для конвертации ogg в wav в оперативной памяти).
+## Локальный запуск (Local Development)
 
-### 2. Структура проекта
-
-Разделяй логику сразу. Не пиши монолит в одном файле `main.py`, иначе интеграция Google Docs превратится в хаос.
-
-```text
-diary_bot/
-├── core/
-│   ├── config.py          # Загрузка ENV переменных (токены, пути)
-│   └── schemas.py         # Pydantic модели (DiaryEntry)
-├── services/
-│   ├── audio.py           # Конвертация OGG -> WAV (FFmpeg in-memory)
-│   ├── stt.py             # Интеграция faster-whisper
-│   └── llm.py             # Интеграция instructor + Ollama
-├── tg_bot/
-│   ├── handlers.py        # Прием голосовых, отправка ответов
-│   └── bot.py             # Инициализация aiogram и точка входа (polling)
-├── requirements.txt
-├── .env.example
-└── README.md
-
-```
-
-### 3. Пошаговый план реализации (Минимальная версия)
-
-**Шаг 1: Инициализация окружения**
-
-* Создай виртуальное окружение (`python -m venv venv`).
-* Установи зависимости: `pip install aiogram pydantic instructor openai faster-whisper ffmpeg-python python-dotenv`.
-* Убедись, что в системе установлен бинарник `ffmpeg`.
-* Запусти Ollama: `ollama run qwen2.5:7b-instruct`.
-
-**Шаг 2: Настройка схем и промптов (`schemas.py` & `llm.py`)**
-
-* Опиши класс `DiaryEntry` наследованием от `pydantic.BaseModel`. Задай поля: `facts`, `stressors`, `metrics`, `action_items`.
-* Настрой клиент `instructor` для обращения к локальной Ollama (порт 11434). Напиши жесткий системный промпт: "Ты парсер. Извлеки факты. Никакой воды".
-
-**Шаг 3: Аудио-пайплайн (`audio.py` & `stt.py`)**
-
-* Напиши функцию приема `bytes` (.ogg) и отдачи `bytes` (.wav) через `ffmpeg.input('pipe:0')`.
-* Инициализируй `WhisperModel`. Напиши функцию, принимающую WAV-байты через `io.BytesIO` и возвращающую склеенную строку текста.
-
-**Шаг 4: Склейка в Telegram (`handlers.py` & `bot.py`)**
-
-* Создай хэндлер на `F.voice`.
-* Скачай аудио в память (`bot.download_file`).
-* Прогони байты через аудио-пайплайн (STT).
-* Передай текст в LLM-пайплайн.
-* Собери Markdown-строку из полученного Pydantic-объекта и отправь пользователю (изменив сообщение "Анализирую...").
-
----
-
-### 4. Содержимое README.md
-
-Скопируй эту структуру для файла `README.md`.
-
-```markdown
-# Cynical Voice Diary (MVP)
-
-Беспощадный аналитический бот. Принимает поток сознания голосом, возвращает структурированную сухую выжимку фактов и экшен-айтемов. Никакой эмпатии, только данные.
-
-## Цель (Goal)
-Превратить хаотичные голосовые заметки в структурированный лог без потери приватности. Вся обработка происходит локально.
-
-## Ритм и Архитектура (Current State)
-**Фаза 1: In-place Telegram MVP (Текущая)**
-1. Пользователь отправляет Voice.
-2. Бот скачивает OGG в память.
-3. In-memory конвертация в WAV (FFmpeg).
-4. Локальный STT (faster-whisper) переводит аудио в сырой текст.
-5. Локальная LLM (Qwen2.5 через Ollama + Instructor) извлекает JSON по жесткой Pydantic-схеме.
-6. Бот возвращает отформатированный Markdown-текст в чат.
-
-## Стек (Stack)
-* Python 3.11+, aiogram 3.x
-* faster-whisper, FFmpeg
-* Ollama (qwen2.5:7b-instruct), instructor, pydantic
-* pytest, pytest-asyncio
-
-## Инструкция по запуску
-1. Установи `ffmpeg`, `Python` и `Ollama` в систему (если отсутствуют).
-2. Подними загруженную LLM модель Ollama: `ollama run qwen2.5:7b-instruct`
-3. Создай виртуальное окружение и установи пакеты: `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`
-4. Скопируй `.env.example` в `.env` и добавь `BOT_TOKEN` твоего бота.
-5. Запусти бота: `python -m tg_bot.bot`
+1. Установите систему `ffmpeg` (например, `brew install ffmpeg` для Mac или `apt install ffmpeg` для Linux).
+2. Создайте виртуальное окружение: `python -m venv venv`
+3. Активируйте: `source venv/bin/activate`
+4. Установите зависимости: `pip install -r requirements.txt`
+5. Скопируйте `.env.example` в `.env` и добавьте ваш `BOT_TOKEN`.
+6. Запустите бота: `python -m tg_bot.bot`
 
 ## Тестирование
-Для верификации работы бота и обработки аудио-пайплайнов используй pytest:
 ```bash
 source venv/bin/activate
 pytest tests/
@@ -115,24 +33,66 @@ pytest tests/
 
 ---
 
-## Roadmap: Масштабирование и Расширение (Future Scaling)
+## Варианты деплоя в интернет (Online Deployment)
 
-Архитектура спроектирована модульно для безболезненного перехода к следующим фазам:
+Чтобы бот работал не локально, а онлайн 24/7, вам потребуется виртуальный сервер (VPS) с установленным Linux (например, Ubuntu 22.04). Модели faster-whisper (tiny/base) отлично работают на недорогих VPS (от 2 GB RAM / 2 CPU).
 
-**Фаза 2: Интеграция Google Docs (BYOS - Bring Your Own Storage)**
-* **Задача:** Перестать отдавать текст в ТГ, начать писать напрямую в личный документ юзера.
-* **Реализация:**
-    * Перевод бота с Long Polling на Webhooks + FastAPI.
-    * Реализация OAuth 2.0 flow через FastAPI эндпоинты (`/login`, `/callback`).
-    * Хранение access/refresh токенов в SQLite (через SQLAlchemy).
-    * Интеграция Google Docs API (`batchUpdate` для аппенда текста в конец файла).
+### Вариант 1: Деплой как системный сервис (Systemd)
 
-**Фаза 3: Подключение сторонних сервисов**
-* Замена Google Docs на Notion API или Obsidian (через локальный sync).
-* Добавление парсера задач для проброса `action_items` напрямую в Todoist / Jira API.
+Самый простой способ заставить бота работать в фоне и автоматически перезапускаться.
 
-**Фаза 4: Улучшение пайплайна**
-* Переход на Nvidia Parakeet (FastConformer) при развертывании на GPU сервере для снижения latency.
-* Добавление кастомного RAG для анализа исторических записей дневника (поиск паттернов выгорания на основе агрегированных `stressors`).
+1. Подключитесь к VPS: `ssh root@your_server_ip`
+2. Обновите пакеты и установите ffmpeg: `sudo apt update && sudo apt install ffmpeg python3-venv`
+3. Склонируйте ваш код на сервер (например, в `/opt/fast_bot`).
+4. Настройте окружение внутри папки проекта:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+5. Добавьте ваш токен: `nano .env` (и впишите `BOT_TOKEN=...`).
+6. Создайте Systemd сервис: `sudo nano /etc/systemd/system/fastbot.service`
+   ```ini
+   [Unit]
+   Description=Fast Telegram Voice Bot
+   After=network.target
 
-```
+   [Service]
+   User=root
+   WorkingDirectory=/opt/fast_bot
+   ExecStart=/opt/fast_bot/venv/bin/python -m tg_bot.bot
+   Restart=always
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+7. Запустите и добавьте в автозагрузку:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable fastbot
+   sudo systemctl start fastbot
+   sudo systemctl status fastbot
+   ```
+
+### Вариант 2: Деплой через Docker (Рекомендуемый)
+
+Если вы хотите изолировать приложение.
+
+1. Установите Docker на вашем VPS.
+2. Создайте `Dockerfile` в корне проекта:
+   ```dockerfile
+   FROM python:3.11-slim
+   RUN apt-update && apt-install -y ffmpeg
+   WORKDIR /app
+   COPY requirements.txt .
+   RUN pip install --no-cache-dir -r requirements.txt
+   COPY . .
+   CMD ["python", "-m", "tg_bot.bot"]
+   ```
+3. Соберите и запустите образ:
+   ```bash
+   docker build -t fastbot .
+   docker run -d --name bot_instance --env-file .env fastbot
+   ```
+
+*Примечание: для высокой нагрузки и веб-хуков (Webhooks) потребуется переход от long-polling (`dp.start_polling()`) на FastAPI/Aiohttp, а также настройка Nginx в качестве Reverse Proxy.*
